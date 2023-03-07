@@ -4,28 +4,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import LeftSide from '../components/LeftSide';
 import RightSide from '../components/RightSide';
 import Keypad from '../components/Keypad';
-import { BASE_URL } from "@env"
 import axios from 'axios';
 import Loader from '../components/Loader';
+import CountDown from 'react-native-countdown-component';
+
 
 function HomeScreen({ navigation }) {
 
   const [text, setText] = useState("")
   const [option, setOption] = useState("")
   const [type, setType] = useState("")
-  // const [edit, setEdit] = useState(false)
+  const [active, setActive] = useState(true)
   const [data, setData] = useState()
   const [status, setStatus] = useState("")
-
-
+  const [wrong, setWrong] = useState(false)
+  const [revoked, setRevoked] = useState(false)
+  const [clicked, setCicked] = useState(false)
 
   const register = () => {
-    console.log(AsyncStorage.getAllKeys())
-    axios.post(`${BASE_URL}/register-atm`, {})
+    console.log(`${process.env['BASE_URL']}`)
+    axios.post(`${process.env['BASE_URL']}/atm/register`, {})  
       .then(async (rs) => {
-        console.log(rs.data)
         await AsyncStorage.setItem('atmData', JSON.stringify(rs.data))
-
       })
       .catch(e => {
         console.log("reg", e)
@@ -35,64 +35,101 @@ function HomeScreen({ navigation }) {
 
   useEffect(() => {
     register()
+    // navigation.navigate("Transaction")
+
   }, [])
 
   useEffect(() => {
 
-    console.log(type)
-    if (type == 'general') {
-
-    } else if (type == 'delegated') {
-
+    if (type.length > 0) {
+      setWrong(false)
+    } else {
+      // setStatus("")
     }
   }, [type])
 
   const checkConnection = async (data) => {
-    console.log(data)
-    await axios.post(`${BASE_URL}/proof-state/${data.presentation_exchange_id}`, {})
+    const atm = JSON.parse(await AsyncStorage.getItem('atmData'))
+
+    await  axios.post(`${process.env['BASE_URL']}/vc/proof-state/${data.presentation_exchange_id}`, {  
+      "atm_number": atm.atm_number,
+      "key": atm.key, "privateKey": atm.privateKey, "bankPublicKey": atm.bankPublicKey
+    })
       .then((res) => {
-        // console.log(res.data)
+        console.log(res.data)
         res.data.state && setStatus(res.data.state)
-      }).catch(e => console.log("con", e))
+      }).catch(e => {
+        console.log("con", e)
+        setRevoked(true)
+        setWrong(true)
+        setType("")
+      })
   }
 
 
+
   //submit handler
+
   const checkCred = async () => {
 
-    let atm = JSON.parse(await AsyncStorage.getItem('atmData'))
-    console.log("he he", atm.atm_number, text)
+    const atm = JSON.parse(await AsyncStorage.getItem('atmData')) 
 
     if (type === "general") {
-
-      await axios.post(`${BASE_URL}/verify-user`, { "atm_uid": text, "atm_number": atm.atm_number })
+      text.length > 0 && setCicked(true)
+      await axios.post(`${process.env['BASE_URL']}/verify/user`, {   
+        "atm_uid": text, "atm_number": atm.atm_number,
+        "key": atm.key, "privateKey": atm.privateKey, "bankPublicKey": atm.bankPublicKey
+      })
         .then((rs) => {
           checkConnection(rs.data)
           setData(rs.data)
         })
-        .catch(e => console.log("cred", e))
+        .catch(e => {
+          console.log("cred", e)
+          setCicked(false)
+          setWrong(true)
+          setType("")
+        })
 
     } else if (type === "delegated") {
-      await axios.post(`${BASE_URL}/verify-delegation`, { "delegation_uid": text, "atm_number": atm.atm_number })
+      text.length > 0 && setCicked(true)
+      await axios.post(`${process.env['BASE_URL']}/verify/delegation`, {   
+        "delegation_uid": text, "atm_number": atm.atm_number,
+        "key": atm.key, "privateKey": atm.privateKey, "bankPublicKey": atm.bankPublicKey
+      })
         .then((rs) => {
-          checkConnection(rs.data)
-          setData(rs.data)
-
+          if (rs.data.result) {
+            checkConnection(rs.data)
+            setData(rs.data)
+          }
+          else {
+            setCicked(false)
+            setRevoked(true)
+            setWrong(true)
+            setType("")
+          }
+          console.log(rs.data)
         })
-        .catch(e => console.log("cred", e))
+        .catch(e => {
+          console.log("cred", e)
+          setCicked(false)
+          setWrong(true)
+          setType("")
+        })
     }
 
 
   }
 
   useEffect(() => {
-    console.log(option)
+
     if (option == 'submit') {
       //submission
-      // navigation.navigate('Options')
+
       checkCred()
       setText("")
       setOption("")
+
       // setType("")
 
     } else if (option == 'exit') {
@@ -100,55 +137,70 @@ function HomeScreen({ navigation }) {
       setOption("")
       setType("")
       setStatus("")
+      setCicked(false)
       setData(null)
-      navigation.navigate("HomePage")
+      setWrong(false)
+
 
     }
   }, [option])
 
   const revoke = async () => {
-    console.log("rev", data)
-    axios.post(`${BASE_URL}/revoke`, { "connection_id": data.connection_id, "cred_ex_id": data.credential_exchange_id })
+    console.log("revoke")
+    const atm = JSON.parse(await AsyncStorage.getItem('atmData'))
+    axios.post(`${process.env.BASE_URL}/vc/revoke`, {  
+      "connection_id": data.connection_id, "cred_ex_id": data.credential_exchange_id,
+      "atm_number": atm.atm_number, "key": atm.key, "privateKey": atm.privateKey, "bankPublicKey": atm.bankPublicKey
+    })
       .then((res) => {
-        console.log(res)
+        console.log("revoked")
+        setOption("")
         setType("")
+        setData(null)
+        setCicked(false)
+        setWrong(false)
+        setStatus("")
       }).catch(e => console.log(e))
   }
 
   const setUser = async () => {
     await AsyncStorage.setItem('userData', JSON.stringify(data))
     setType("")
-    setStatus("")
-    setText("")
     setData(null)
+    setCicked(false)
+    setWrong(false)
+    setStatus("")
     navigation.navigate("Options")
   }
+
 
   useEffect(() => {
     let timeruns = 0
     let interval = data && setInterval(() => {
-      checkConnection(data)
-
+      console.log(data)
       timeruns += 1
-      if (timeruns >= 20) {
-        setText("")
+      if (timeruns < 30) {
+        checkConnection(data)
+      } else {
         setData(null)
         setStatus("")
+        setText("")
+        setOption("")
         setType("")
-        clearInterval(interval)
       }
-      console.log(status)
-
     }, 2500)
+
     if (status === "verified") {
-      setText("")
-      console.log(type)
 
       type === "general" && setUser()
 
       type === "delegated" && revoke()
+      setText("")
+      // setStatus("")
       clearInterval(interval)
     }
+    console.log("sta", status)
+
     return () => {
       clearInterval(interval)
     }
@@ -171,45 +223,54 @@ function HomeScreen({ navigation }) {
             width: 1
           }
         }} >
-          <View style={{ marginTop: 30, flex: 1 }}>
-            <Text style={{ textAlignVertical: "center", textAlign: "center", fontSize: 30, color: "#4702f5" }}>Welcome to ATM</Text>
-            <Text style={{ textAlignVertical: "center", textAlign: "center", fontSize: 15, color:"#6122d6" }}>Please establish connection first to continue transaction</Text>
-
+          <View style={{ marginTop: 30, flex: 2 }}>
+            <Text style={{ textAlignVertical: "center", textAlign: "center", fontSize: 30, color: "#16026e", marginBottom: 10 }}>Welcome to ATM</Text>
+            {!type && <Text style={{ textAlignVertical: "center", textAlign: "center", fontSize: 18, color: "#6122d6", width: 400 }}>At first, choose Transaction Type from left. Then type using keypad</Text>}
+            {type && (status.length <= 0) && <Text style={{ textAlignVertical: "center", textAlign: "center", fontSize: 18, color: "#6122d6" }}>Type your atm user id</Text>}
           </View>
-          {status.length <= 0 &&
+          {(status.length <= 0) &&
             <View style={{ flex: 2 }}>
               <TextInput
-                style={{ height: 40, borderBottomWidth: 1, borderBottomColor: 'grey', marginTop: 30, fontSize: 23 }}
+                style={{ color: 'black', fontWeight: '400', height: 40, borderBottomWidth: 1, borderBottomColor: 'grey', marginTop: 30, fontSize: 23, textAlign: 'center' }}
                 maxLength={8}
-                placeholder=" Type the connection id "
+                placeholder=" Enter your atm uid "
                 onChangeText={newText => setText(newText)}
                 defaultValue={text}
-                editable={type.length > 0 ? true : false}
-                selectTextOnFocus={type.length > 0 ? true : false}
-              // onFocus = {type.length >0 ? 'true': 'false'}
+                editable={false}
               />
             </View>}
 
-          <View style={{ flex: 2 }}>
-            {status === "verified" && type === "delegated" ? <Text style={{ color: 'green', fontWeight: '700', fontSize: 20 }}>Money is being dispensed. Thank you</Text> :
-              <Text style={{ fontWeight: '700', fontSize: 20, paddingTop: 40 }}>Connection status : <Text style={{ color: 'green' }}>{status}</Text> </Text>}
-          </View>
-          {status === "request_sent" &&
+          {(clicked || status === "request_sent" || status === "presentation_received") &&
             <View style={{ flex: 2, paddingBottom: 100 }}>
               <Loader />
-              {/* <Text style={{ color: '#fa9837', fontWeight: '700', fontSize: 20 }}>Please response to proof request in your wallet...</Text> */}
+              {status === "presentation_received" && <Text style={{ textAlign: 'center', color: 'green', fontWeight: '700', fontSize: 18, paddingBottom: 20 }}>Please wait. Verifying...</Text>}
 
             </View>
           }
+          {!wrong ?
+            <View style={{ flex: 2 }}>
+              {(status === "verified" && type === "delegated") && <Text style={{ textAlign: 'center', color: 'green', fontWeight: '700', fontSize: 20 }}>Money is being dispensed. Thank you</Text>}
+
+              {status === "request_sent" && <Text style={{ textAlign: 'center', color: 'green', fontWeight: '700', fontSize: 15 }}>Please share proof request through your wallet within 5 min</Text>}
+            </View> :
+            <View style={{ flex: 2 }}>
+              {revoked ?
+                <Text style={{ textAlign: 'center', color: '#a62f03', fontWeight: '500', fontSize: 20 }}>This credential has been revoked</Text>
+                :
+                <Text style={{ textAlign: 'center', color: '#a62f03', fontWeight: '500', fontSize: 20 }}>Something went wrong. Please try again</Text>
+              }
+            </View>
+          }
+
         </View>
 
         <View style={{ flex: 2, paddingLeft: 50 }} >
-          <RightSide setOption={setOption} />
+          <RightSide screen="homepage" setOption={setOption} />
         </View>
       </View>
       <View style={{ flex: 2, width: '100%', alignItems: 'center' }}>
         {/* <Button title='next' onPress={e => navigation.navigate("Options")} /> */}
-        <Keypad type={type.length} text={text} setText={setText} option={option} />
+        <Keypad active={active} type={type} text={text} setText={setText} option={option} />
       </View>
     </View>
   )

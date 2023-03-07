@@ -13,15 +13,23 @@ function LeftSide({type, setType, active}) {
             onPress={async () => {
               active && setType("general")
             }}
-            color={type === 'general' ? "": "black" }
+            color={type === 'general' ? "#0616c7": "black" }
           />
+          {/* <Button
+            disabled={!active}
+            title="Shovon button"
+            onPress={async () => {
+              active && setType("shovon")
+            }}
+            color={type === 'shovon' ? "": "black" }
+          /> */}
           <Button
             disabled={!active}
             title="Delegated Transaction"
             onPress={async () => {
               active && setType("delegated")
             }}
-            color={type === 'delegated' ? "": "black" }
+            color={type === 'delegated' ? "#0616c7": "black" }
           />
     </View>
   )

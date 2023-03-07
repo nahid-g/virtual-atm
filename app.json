@@ -24,7 +24,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "package": "com.nahid_061.AtmDemo"
     },
     "web": {
       "favicon": "./assets/favicon.png"

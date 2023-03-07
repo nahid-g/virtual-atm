@@ -15,8 +15,8 @@ export default function Loader() {
 }
 const styles = StyleSheet.create({
   animation: {
-    width: 200,
-    height: 200,
+    width: 180,
+    height: 180,
     // paddingTop: -10
   },
 });

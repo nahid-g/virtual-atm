@@ -10,7 +10,7 @@ import Transaction from './screens/Transaction';
 
 
 const Stack = createNativeStackNavigator();
-
+console.log(process.env['BASE_URL'])      
 function App() {
   return (
     <NavigationContainer>
